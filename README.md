@@ -17,7 +17,9 @@ This application is a Flask-based API designed to scrape web content and store i
 - BeautifulSoup4 (bs4)
 - SQLite3 (built-in with Python)
 
-
+## Additional Info
+ - Web_scrapper1 and web_scrapper2 files are not related to project. I just practiced scraping in these files.
+ - All *.html files are also irrelavent with the project
 
 
 
