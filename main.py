@@ -6,6 +6,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 
+# Scrapping functions:
 
 def validate_url(url):
     try:
@@ -49,6 +50,51 @@ def scrape_notes():
     except requests.RequestException as e:
         return jsonify({'error': f'Failed to retrieve URL: {str(e)}'}), 500
 
+@app.route('/notes', methods=['GET'])
+def get_notes():
+
+    # Optional Parameters
+    url = request.args.get('url')
+    course_title = request.args.get('course_title')
+    grade_level = request.args.get('grade_level')
+
+    # Construct the query
+    query = "SELECT * FROM notes WHERE 1=1"
+    params = []
+
+    if url:
+        query += " AND url = ?"
+        params.append(url)
+    if course_title:
+        query += " AND course_title = ?"
+        params.append(course_title)
+    if grade_level:
+        query += " AND grade_level = ?"
+        params.append(grade_level)
+
+    conn = sqlite3.connect("lecture_notes.db")
+    c = conn.cursor()
+    c.execute(query, params)
+    notes = c.fetchall()
+    conn.close()
+
+    if not notes:
+        return jsonify({'message': 'No notes found for the specified criteria.'}), 404
+
+    # Format the response
+    result = []
+    for note in notes:
+        result.append({
+            'id': note[0],
+            'url': note[1],
+            'course_title': note[2],
+            'grade_level': note[3],
+            'content': note[4],
+            'date': note[5],
+        })
+
+    return jsonify(result), 200
+
 def extract_content(soup):
     structured_content = {}
     
@@ -72,8 +118,11 @@ def extract_content(soup):
     
     return content
 
+
+# Database functions:
+
 # Database setup
-def init_db():
+def create_db():
     conn = sqlite3.connect("lecture_notes.db")
     cursor = conn.cursor()
     cursor.execute('''
@@ -89,6 +138,7 @@ def init_db():
     conn.commit()
     conn.close()
 
+# Manually add a data with index
 def manual_add_data_to_db(ind):
     conn = sqlite3.connect("lecture_notes.db")
     c = conn.cursor()
@@ -98,6 +148,7 @@ def manual_add_data_to_db(ind):
     conn.commit()
     conn.close()
 
+# Main save function to save scrapped data into db
 def save_to_db(url, course_title, grade_level, content):
     try:
         conn = sqlite3.connect("lecture_notes.db")
@@ -121,7 +172,7 @@ def save_to_db(url, course_title, grade_level, content):
     finally:
         conn.close()
 
-# Function to get all db content, prints its content line by line (no return line)
+# Get all db content, prints its content line by line (no return line)
 def get_all_db():
     conn = sqlite3.connect("lecture_notes.db")
     c = conn.cursor()
@@ -133,22 +184,35 @@ def get_all_db():
     for content in all_content:
         print(content)
 
+# Remove all db content and also table
 def remove_db():
     conn = sqlite3.connect("lecture_notes.db")
     c = conn.cursor()
     c.execute("""DROP TABLE notes""")
     conn.close()
 
-
-url = "https://madlen.io"
-title = "functions"
-grade = "9"
-content = "content"
-print(f"Succesfully saved the data with index: {save_to_db(url, title, grade, content)}")
+# A few dummy code lines to check whether db works as intended:
+# url = "https://madlen.io"
+# title = "functions"
+# grade = "9"
+# content = "content"
+# print(f"Succesfully saved the data with index: {save_to_db(url, title, grade, content)}")
 # manual_add_data_to_db(7)
 
 if __name__ == '__main__':
-    init_db()
+    create_db()
     # remove_db()
     get_all_db()
-    #app.run(debug=True)
+    app.run(debug=True)
+
+# References:
+# https://www.youtube.com/watch?v=zsYIw6RXjfM  # Flask get post methods
+# https://www.youtube.com/watch?v=XVv6mJpFOb0  # Web scrapping
+# https://www.youtube.com/watch?v=T1xAqWNdfoY # Database operations
+
+# Check whether syntax is correct, and get some help to how to design some parts
+# I also used gpt to have better understanding of some concepts, some parts of the scrapping for example
+# https://chatgpt.com
+
+# https://flask.palletsprojects.com/en/stable/ # Flask docs which I didn't use extensively
+# https://www.crummy.com/software/BeautifulSoup/bs4/doc/ # Use to get better understanging of bs4, not used extensively
