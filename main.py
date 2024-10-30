@@ -63,6 +63,30 @@ def scrape_notes():
     except requests.RequestException as e:
         return jsonify({'error': f'Failed to retrieve URL: {str(e)}'}), 500 # Internal server error
 
+def extract_content(soup):
+    structured_content = {}
+    
+    # Extract headers and their corresponding content
+    for header in soup.find_all(['h1', 'h2', 'h3']):
+        section_title = header.text.strip()  # Get the header text
+        section_content = []
+
+        # Get the next siblings until the next header
+        for sibling in header.find_next_siblings():
+            if sibling.name and sibling.name.startswith('h'):  # Stop at the next header
+                break
+            if sibling.name in ['p', 'ul', 'ol', 'table']:  # Include paragraphs, lists, and tables
+                # Extract text from the sibling instead of the whole HTML
+                section_content.append(sibling.get_text(strip=True))
+
+        # Store the structured content
+        structured_content[section_title] = section_content
+
+    # Convert structured content to a string format
+    # We do this since as far as I see storing a text for columns of db is a better practice
+    content = '\n\n'.join([f"{title}\n{''.join(content)}" for title, content in structured_content.items()])
+    return content
+
 @app.route('/notes', methods=['GET'])
 def get_notes():
 
@@ -89,7 +113,7 @@ def get_notes():
     if grade_level:
         query += " AND grade_level = ?"
         params.append(grade_level)
-
+    
     conn = sqlite3.connect("lecture_notes.db")
     c = conn.cursor()
     c.execute(query, params)
@@ -97,7 +121,16 @@ def get_notes():
     conn.close()
 
     if not notes:
-        return jsonify({'message': 'No notes found for the specified criteria.'}), 404
+        return jsonify({
+            'message': 'No notes found for the specified criteria.',
+            'criteria': {
+                'note_id': note_id,
+                'url': url,
+                'course_title': course_title,
+                'grade_level': grade_level
+            }
+        }), 404
+
 
     # Format the response
     result = []
@@ -112,39 +145,6 @@ def get_notes():
         })
 
     return jsonify(result), 200
-
-def extract_content(soup):
-    structured_content = {}
-    
-    # Extract headers and their corresponding content
-    for header in soup.find_all(['h1', 'h2', 'h3']):
-        section_title = header.text.strip()  # Get the header text
-        section_content = []
-
-        # Get the next siblings until the next header
-        for sibling in header.find_next_siblings():
-            if sibling.name and sibling.name.startswith('h'):  # Stop at the next header
-                break
-            if sibling.name in ['p', 'ul', 'ol', 'table']:  # Include paragraphs, lists, and tables
-                # Extract text from the sibling instead of the whole HTML
-                section_content.append(sibling.get_text(strip=True))
-
-        # Store the structured content
-        structured_content[section_title] = section_content
-
-    # Convert structured content to a string format
-    # We do this since as far as I see storing a text for columns of db is a better practice
-    content = '\n\n'.join([f"{title}\n{''.join(content)}" for title, content in structured_content.items()])
-    return content
-
-"""
-# Code to check whether extract content works fine
-with open("ext_cont.html", "r") as f:
-    html_content = f.read()
-    soup = BeautifulSoup(html_content, "html.parser")
-    ext_con = extract_content(soup)
-    print(ext_con)
-"""
 
 # Database functions:
 
@@ -217,6 +217,15 @@ def remove_db():
     c = conn.cursor()
     c.execute("""DROP TABLE notes""")
     conn.close()
+
+
+# Code to check whether extract content works fine
+with open("ext_cont.html", "r") as f:
+    html_content = f.read()
+    soup = BeautifulSoup(html_content, "html.parser")
+    ext_con = extract_content(soup)
+    print(ext_con)
+
 
 """
 # A few dummy code lines to check whether db works as intended:
