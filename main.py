@@ -123,7 +123,7 @@ def get_notes():
     if not notes:
         return jsonify({
             'message': 'No notes found for the specified criteria.',
-            'criteria': {
+            'criteria': {           # Introduced to inform which one is null
                 'note_id': note_id,
                 'url': url,
                 'course_title': course_title,
@@ -218,17 +218,24 @@ def remove_db():
     c.execute("""DROP TABLE notes""")
     conn.close()
 
-
+"""
 # Code to check whether extract content works fine
-with open("ext_cont.html", "r") as f:
+with open("madlen.html", "r") as f:
     html_content = f.read()
     soup = BeautifulSoup(html_content, "html.parser")
-    ext_con = extract_content(soup)
-    print(ext_con)
+    madlen_extracted = extract_content(soup)
+    print(madlen_extracted)
 
+    # Code to check whether extracted version can be saved to db
+    # url = "madlen.html"
+    # title = "functions"
+    # grade = "9"
+    # content = madlen_extracted
+    # print(f"Succesfully saved the data with index: {save_to_db(url, title, grade, content)}")
+"""
 
 """
-# A few dummy code lines to check whether db works as intended:
+# Code to check whether db works as intended:
 # url = "https://madlen.io"
 # title = "functions"
 # grade = "9"
