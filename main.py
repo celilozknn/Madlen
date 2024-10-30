@@ -49,7 +49,7 @@ def scrape_notes():
         response.raise_for_status()  # Raises an error for 4xx/5xx responses, although we checked it might be changed
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        # Content Extraction
+        # Content Extraction, TEXT is returned not JSON
         extracted_content = extract_content(soup)
 
         # Save data to the database
@@ -129,7 +129,7 @@ def get_notes():
                 'course_title': course_title,
                 'grade_level': grade_level
             }
-        }), 404
+        }), 404 # Not found
 
 
     # Format the response
