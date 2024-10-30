@@ -10,11 +10,18 @@ app = Flask(__name__)
 
 def validate_url(url):
     try:
-        response = requests.head(url, allow_redirects=True)
+        # Header is usually required since many websites require a user-agent to identify 
+        # whether it will be allowed or not
+        headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.183 Safari/537.36"
+        }
+        response = requests.get(url, headers= headers)
         return response.status_code == 200
-    except requests.RequestException:
+    except requests.RequestException as e: # Base exception, will handle all cases such as time-out, connection or http
+        print(f"An error occurred: {e}")   # Inform programmer about the exception cause
         return False
-    
+
+
 @app.route('/scrape', methods=['POST'])
 def scrape_notes():
     data = request.json
