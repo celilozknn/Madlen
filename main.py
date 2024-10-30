@@ -6,7 +6,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# Scrapping functions:
+# Scraping functions:
 
 def validate_url(url):
     try:
@@ -21,26 +21,32 @@ def validate_url(url):
         print(f"An error occurred: {e}")   # Inform programmer about the exception cause
         return False
 
-
 @app.route('/scrape', methods=['POST'])
 def scrape_notes():
-    data = request.json
-    url = data.get('url')
+
+    # parse for example "{"url": "http://madlen.io", "course_title": "Mathematics", "grade_level": "10th"})"
+    data = request.json 
+    url = data.get('url') # If not found becomes none, 
     course_title = data.get('course_title')
     grade_level = data.get('grade_level')
 
     # Validate input
-    if not url or not course_title or not grade_level:
-        return jsonify({'error': 'Missing required fields'}), 400
+    if not url or not course_title or not grade_level:  # We need all of these inputs
+        return jsonify({'error': 'Missing required fields'}), 400 # Bad request
 
     # URL Validation: Verify that the provided URL is accessible
     if not validate_url(url):
-        return jsonify({'error': 'Invalid URL or unable to access the page'}), 400
+        return jsonify({'error': 'Invalid URL or unable to access the page'}), 400 # Bad request
+
+    # Set up headers for scraping
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.183 Safari/537.36"
+    }
 
     # Scrape content from the URL
     try:
-        response = requests.get(url)
-        response.raise_for_status()  # Raises an error for 4xx/5xx responses
+        response = requests.get(url, headers = headers)
+        response.raise_for_status()  # Raises an error for 4xx/5xx responses, although we checked it might be changed
         soup = BeautifulSoup(response.text, 'html.parser')
 
         # Content Extraction
@@ -52,14 +58,16 @@ def scrape_notes():
         return jsonify({
             'message': 'Content scraped and stored successfully',
             'note_id': note_id
-        }), 201
+        }), 201 # Request handled and new resource has been created
 
     except requests.RequestException as e:
-        return jsonify({'error': f'Failed to retrieve URL: {str(e)}'}), 500
+        return jsonify({'error': f'Failed to retrieve URL: {str(e)}'}), 500 # Internal server error
 
 @app.route('/notes', methods=['GET'])
 def get_notes():
 
+    # Retrieve the ID from the request arguments (Additional)
+    note_id = request.args.get('id')
     # Optional Parameters
     url = request.args.get('url')
     course_title = request.args.get('course_title')
@@ -69,6 +77,9 @@ def get_notes():
     query = "SELECT * FROM notes WHERE 1=1"
     params = []
 
+    if note_id:  # Check if ID is provided
+        query += " AND id = ?"
+        params.append(note_id)
     if url:
         query += " AND url = ?"
         params.append(url)
@@ -107,7 +118,7 @@ def extract_content(soup):
     
     # Extract headers and their corresponding content
     for header in soup.find_all(['h1', 'h2', 'h3']):
-        section_title = header.text.strip()
+        section_title = header.text.strip()  # Get the header text
         section_content = []
 
         # Get the next siblings until the next header
@@ -115,16 +126,25 @@ def extract_content(soup):
             if sibling.name and sibling.name.startswith('h'):  # Stop at the next header
                 break
             if sibling.name in ['p', 'ul', 'ol', 'table']:  # Include paragraphs, lists, and tables
-                section_content.append(str(sibling))
+                # Extract text from the sibling instead of the whole HTML
+                section_content.append(sibling.get_text(strip=True))
 
         # Store the structured content
         structured_content[section_title] = section_content
 
-    # Convert structured content to a string format (or keep it as dict if preferred)
+    # Convert structured content to a string format
+    # We do this since as far as I see storing a text for columns of db is a better practice
     content = '\n\n'.join([f"{title}\n{''.join(content)}" for title, content in structured_content.items()])
-    
     return content
 
+"""
+# Code to check whether extract content works fine
+with open("ext_cont.html", "r") as f:
+    html_content = f.read()
+    soup = BeautifulSoup(html_content, "html.parser")
+    ext_con = extract_content(soup)
+    print(ext_con)
+"""
 
 # Database functions:
 
@@ -155,7 +175,7 @@ def manual_add_data_to_db(ind):
     conn.commit()
     conn.close()
 
-# Main save function to save scrapped data into db
+# Main save function to save scraped data into db
 def save_to_db(url, course_title, grade_level, content):
     try:
         conn = sqlite3.connect("lecture_notes.db")
@@ -198,6 +218,7 @@ def remove_db():
     c.execute("""DROP TABLE notes""")
     conn.close()
 
+"""
 # A few dummy code lines to check whether db works as intended:
 # url = "https://madlen.io"
 # title = "functions"
@@ -205,20 +226,23 @@ def remove_db():
 # content = "content"
 # print(f"Succesfully saved the data with index: {save_to_db(url, title, grade, content)}")
 # manual_add_data_to_db(7)
+"""
 
 if __name__ == '__main__':
-    create_db()
+    pass
+    # create_db()
     # remove_db()
-    get_all_db()
+    # get_all_db()
     app.run(debug=True)
 
 # References:
 # https://www.youtube.com/watch?v=zsYIw6RXjfM  # Flask get post methods
-# https://www.youtube.com/watch?v=XVv6mJpFOb0  # Web scrapping
-# https://www.youtube.com/watch?v=T1xAqWNdfoY # Database operations
+# https://www.youtube.com/watch?v=XVv6mJpFOb0  # Web scraping
+# https://www.youtube.com/watch?v=T1xAqWNdfoY  # Database operations
+# https://www.youtube.com/watch?v=KgWhlrpL4Ao  # Sibling operation
 
 # Check whether syntax is correct, and get some help to how to design some parts
-# I also used gpt to have better understanding of some concepts, some parts of the scrapping for example
+# I also used gpt to have better understanding of some concepts, some parts of the scraping for example
 # https://chatgpt.com
 
 # https://flask.palletsprojects.com/en/stable/ # Flask docs which I didn't use extensively
