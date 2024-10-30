@@ -76,14 +76,26 @@ def extract_content(soup):
             if sibling.name and sibling.name.startswith('h'):  # Stop at the next header
                 break
             if sibling.name in ['p', 'ul', 'ol', 'table']:  # Include paragraphs, lists, and tables
-                # Extract text from the sibling instead of the whole HTML
-                section_content.append(sibling.get_text(strip=True))
+                if sibling.name == 'p':
+                    # For paragraphs, just add the text
+                    section_content.append(sibling.get_text(strip=True))
+                elif sibling.name in ['ul', 'ol']:
+                    # For lists, join the items with a space
+                    items = [li.get_text(strip=True) for li in sibling.find_all('li')]
+                    section_content.append(' '.join(items))
+                elif sibling.name == 'table':
+                    # For tables, join header and data with spaces
+                    rows = []
+                    for row in sibling.find_all('tr'):
+                        cells = [cell.get_text(strip=True) for cell in row.find_all(['th', 'td'])]
+                        rows.append(' '.join(cells))  # Join cells with a space
+                    section_content.append('\n'.join(rows))  # Join rows with new lines
 
         # Store the structured content
         structured_content[section_title] = section_content
 
     # Convert structured content to a string format
-    # We do this since as far as I see storing a text for columns of db is a better practice
+    # Storing a text for columns of db is a better practice
     content = '\n\n'.join([f"{title}\n{''.join(content)}" for title, content in structured_content.items()])
     return content
 
@@ -98,7 +110,9 @@ def get_notes():
     grade_level = request.args.get('grade_level')
 
     # Construct the query
-    query = "SELECT * FROM notes WHERE 1=1"
+    # Where 1=1 is introduced for adding other query params
+    # It's a dummy text
+    query = "SELECT * FROM notes WHERE 1=1" 
     params = []
 
     if note_id:  # Check if ID is provided
@@ -233,7 +247,6 @@ with open("madlen.html", "r") as f:
     # content = madlen_extracted
     # print(f"Succesfully saved the data with index: {save_to_db(url, title, grade, content)}")
 """
-
 """
 # Code to check whether db works as intended:
 # url = "https://madlen.io"
